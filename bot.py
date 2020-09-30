@@ -3,7 +3,7 @@ import re
 import requests
 from emoji import emojize
 from datetime import datetime
-from pprint import pprint
+
 
 
 TOKEN = ""
@@ -16,54 +16,72 @@ usd_type = ['usd', '$', 'гыв', 'баксы', 'доллары','зеленые
 byn_type = ['byn', 'инт', 'белок', 'бел', 'by', 'ин']
 rub_type = ['rub', 'кги', 'россии','рублей', 'ru', 'кг', 'росии', 'рос']
 
-CURRENCY = requests.get('https://www.nbrb.by/api/exrates/rates?periodicity=0')
-usd = CURRENCY.json()[4]['Cur_OfficialRate']
-rub = CURRENCY.json()[16]['Cur_OfficialRate']
-euro = CURRENCY.json()[5]['Cur_OfficialRate']
-print(usd, euro, rub)
+
+currency = requests.get('https://www.nbrb.by/api/exrates/rates?periodicity=0')
+usd = currency.json()[4]['Cur_OfficialRate']
+rub = currency.json()[16]['Cur_OfficialRate']
+euro = currency.json()[5]['Cur_OfficialRate']
 
 
 def current_time():
+    '''Returns the time as a string'''
     date = datetime.now()
     date_to_str = datetime.strftime(date, '%d-%m-%Y')
     return date_to_str
 
+def send_response(id, sum_of_money, result_1, result_2, result_3, marker):
+    '''The function sends a response to the user'''
+    if marker == 'usd':
+        return bot.send_message(id, f'За {sum_of_money} USD Вы получите:\n' + emojize(':Belarus: ') + result_1 +
+                         '\n' + emojize(':European_Union: ') + result_2 + '\n' + emojize(':Russia: ') + result_3)
+    elif marker == 'euro':
+        return bot.send_message(id, f'За {sum_of_money} EURO Вы получите:\n' + emojize(':Belarus: ') + result_1 +
+                         '\n' + emojize(':United_States: ') + result_2 + '\n' + emojize(':Russia: ') + result_3)
+    elif marker == 'rub':
+        return bot.send_message(id, f'За {sum_of_money} RUB Вы получите:\n' + emojize(':Belarus: ') + result_1 +
+                         '\n' + emojize(':United_States: ') + result_2 + '\n' + emojize(
+                             ':European_Union: ') + result_3)
+    elif marker == 'byn':
+        return bot.send_message(id, f'За {sum_of_money} BYN Вы получите:\n' + emojize(':United_States: ') + result_2 +
+                         '\n' + emojize(':European_Union: ') + result_1 + '\n' + emojize(':Russia: ') + result_3)
+
+
 
 @bot.message_handler(content_types=['text'])
 def get_text_messages(message):
-    pprint(message.text)
+
+    '''The function receives the user's request, converts it, and calls the function send_response'''
     try:
-        sum_of_money = int(re.search(r'\d*', message.text).group())
+        sum_of_money = float(re.search(r'\d*[^\s|a-z]\d*', message.text).group().replace(',', '.'))
         marker = re.search(r'[^\d ]\D*$', message.text).group()
-        print(sum_of_money, marker)
 
         if marker.lower() in usd_type:
             result_byn = str(round((sum_of_money * usd), 2))
             result_euro = str(round((sum_of_money * usd / euro), 2))
             result_ru = str(round((sum_of_money * usd * 100 / rub), 2))
-            bot.send_message(message.from_user.id, f'За {sum_of_money} USD Вы получите:\n' + emojize(':Belarus: ') + result_byn +
-                         '\n' + emojize(':European_Union: ') + result_euro + '\n' + emojize(':Russia: ') + result_ru)
+            send_response(message.from_user.id, sum_of_money, result_byn, result_euro, result_ru, 'usd')
+
 
         elif marker.lower() in euro_type:
             result_byn = str(round((sum_of_money * euro), 2))
             result_usd = str(round((sum_of_money * euro / usd), 2))
             result_ru = str(round((sum_of_money * euro * 100 / rub), 2))
-            bot.send_message(message.from_user.id, f'За {sum_of_money} EURO Вы получите:\n' + emojize(':Belarus: ') + result_byn +
-                         '\n' + emojize(':United_States: ') + result_usd + '\n' + emojize(':Russia: ') + result_ru)
+            send_response(message.from_user.id, sum_of_money, result_byn, result_usd, result_ru, 'euro')
+
 
         elif marker.lower() in rub_type:
             result_byn = str(round((sum_of_money * rub / 100), 2))
             result_usd = str(round((sum_of_money * rub / 100 / usd), 2))
             result_euro = str(round((sum_of_money * rub / 100 / euro), 2))
-            bot.send_message(message.from_user.id, f'За {sum_of_money} RUB Вы получите:\n' + emojize(':Belarus: ') + result_byn +
-                         '\n' + emojize(':United_States: ') + result_usd + '\n' + emojize(':European_Union: ') + result_euro)
+            send_response(message.from_user.id, sum_of_money, result_byn, result_usd, result_euro, 'rub')
+
 
         elif marker.lower() in byn_type:
             result_usd = str(round((sum_of_money / usd), 2))
             result_euro = str(round((sum_of_money / euro), 2))
             result_ru = str(round((sum_of_money * 100 / rub), 2))
-            bot.send_message(message.from_user.id, f'За {sum_of_money} BYN Вы получите:\n' + emojize(':United_States: ') + result_usd +
-                         '\n' + emojize(':European_Union: ') + result_euro + '\n' + emojize(':Russia: ') + result_ru)
+            send_response(message.from_user.id, sum_of_money, result_euro, result_usd, result_ru, 'byn')
+
 
         else:
             time = current_time()
@@ -72,3 +90,4 @@ def get_text_messages(message):
         bot.send_message(message.from_user.id, "Неправильный формат ввода!\nФормат ввода: 100 usd")
 
 bot.polling()
+
